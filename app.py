@@ -15,7 +15,7 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 with open("twitter_reply_history_fixed.json", "r", encoding="utf-8") as f:
     user_histories = json.load(f)
 
-# プロンプト生成関数
+# プロンプト生成関数（履歴あり）
 def build_prompt(user_comment, past_replies):
     prompt = "あなたはTwitterアカウントの運営者です。\n"
     prompt += "以下の「過去の返信例」を参考に、次のコメントに対して自然な返信を3パターン考えてください。\n"
@@ -24,6 +24,20 @@ def build_prompt(user_comment, past_replies):
     for ex in past_replies:
         prompt += f"- {ex['text']}\n"
     prompt += f"\n## 新しいコメント:\n{user_comment}\n\n## 自然な返信候補:"
+    return prompt
+
+# プロンプト生成関数（履歴なし）
+def build_generic_prompt(user_comment):
+    prompt = f"""
+あなたはTwitterアカウントの運営者です。
+次のコメントに対して、自然で親しみのある返信を3パターン考えてください。
+絵文字を適度に使い、口調はフレンドリーに。あなたの投稿らしい文体にしてください。
+
+## 新しいコメント:
+{user_comment}
+
+## 自然な返信候補:
+""".strip()
     return prompt
 
 # ランダムに過去の返信を取得
@@ -51,17 +65,19 @@ def index():
         username = request.form["username"].strip()
         comment = request.form["comment"].strip()
         past_replies = get_past_replies(username)
+
         if past_replies:
             prompt = build_prompt(comment, past_replies)
-            response = client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7
-            )
-            reply = response.choices[0].message.content
-            save_log(username, comment, reply)
         else:
-            reply = "⚠️ ユーザーの過去の返信が見つかりませんでした。"
+            prompt = build_generic_prompt(comment)
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        reply = response.choices[0].message.content
+        save_log(username, comment, reply)
 
     return render_template_string("""
     <!DOCTYPE html>
