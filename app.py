@@ -100,8 +100,17 @@ def index():
             }
             button { background: #1da1f2; color: white; border: none; border-radius: 5px; cursor: pointer; }
             button:hover { background: #0d8ddb; }
-            .reply-box { background: #f4f4f4; padding: 1em; border-left: 5px solid #1da1f2; white-space: pre-wrap; margin-top: 1em; }
-            .option { margin-bottom: 1em; }
+            .card {
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                padding: 1em;
+                margin-top: 1em;
+            }
+            .card p {
+                margin: 0 0 0.5em 0;
+            }
         </style>
         <script>
             function copyToClipboard(text) {
@@ -131,8 +140,8 @@ def index():
         {% if reply_options %}
             <h2>生成された返信候補</h2>
             {% for option in reply_options %}
-                <div class="reply-box">
-                    {{ option }}
+                <div class="card">
+                    <p>{{ option }}</p>
                     <button onclick="copyToClipboard('{{ option }}')">コピー</button>
                 </div>
             {% endfor %}
