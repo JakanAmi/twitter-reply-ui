@@ -59,10 +59,13 @@ def get_style_profile():
 
 def build_prompt(user_comment, past_replies):
     profile = get_style_profile()
+    char_len = len(user_comment)
+    length_instruction = f"相手のコメントは約{char_len}文字です。同じくらいの長さで返信してください。"
     prompt = "あなたはTwitterアカウントの運営者です。\n"
     prompt += "以下の「過去の返信例」を参考に、次のコメントに対して自然な返信を3パターン考えてください。\n"
     prompt += "相手に親しみを込めて、あなたらしい語尾・表現・絵文字を活かした文体で書いてください。\n\n"
     prompt += profile + "\n"
+    prompt += length_instruction + "\n"
     prompt += "## 過去の返信例:\n"
     for ex in past_replies:
         prompt += f"- {ex['text']}\n"
@@ -71,6 +74,8 @@ def build_prompt(user_comment, past_replies):
 
 def build_generic_prompt(user_comment):
     profile = get_style_profile()
+    char_len = len(user_comment)
+    length_instruction = f"相手のコメントは約{char_len}文字です。同じくらいの長さで返信してください。"
     prompt = f"""
 あなたはTwitterアカウントの運営者です。
 次のコメントに対して、自然で親しみのある返信を3パターン考えてください。
@@ -79,6 +84,7 @@ def build_generic_prompt(user_comment):
 {get_greeting_instruction()}
 
 {profile}
+{length_instruction}
 
 ## 新しいコメント:
 {user_comment}
