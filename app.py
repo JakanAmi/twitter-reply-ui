@@ -18,11 +18,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 with open("twitter_reply_history_fixed.json", "r", encoding="utf-8") as f:
     user_histories = json.load(f)
 
-# ユーザー名のマッピング（仮名を自動生成）
 for uid, data in user_histories.items():
     data["name"] = f"@{uid[:8]}…"
 
-# 時間帯に応じた挨拶指示を返す
 def get_greeting_instruction():
     jst = pytz.timezone('Asia/Tokyo')
     now_hour = datetime.now(jst).hour
@@ -35,7 +33,6 @@ def get_greeting_instruction():
     else:
         return "深夜帯です。挨拶は控えめでも構いませんが、丁寧な文体を心がけてください。"
 
-# 文体特徴と口グセを抽出
 def get_style_profile():
     all_texts = []
     for data in user_histories.values():
@@ -61,7 +58,6 @@ def get_style_profile():
 よく使う表現：{', '.join(top_phrases)}
 """
 
-# プロンプト生成関数（履歴あり）
 def build_prompt(user_comment, past_replies):
     profile = get_style_profile()
     prompt = "あなたはTwitterアカウントの運営者です。\n"
@@ -74,7 +70,6 @@ def build_prompt(user_comment, past_replies):
     prompt += f"\n## 新しいコメント:\n{user_comment}\n\n{get_greeting_instruction()}\n\n## 自然な返信候補:"
     return prompt
 
-# プロンプト生成関数（履歴なし）
 def build_generic_prompt(user_comment):
     profile = get_style_profile()
     prompt = f"""
@@ -93,21 +88,18 @@ def build_generic_prompt(user_comment):
 """.strip()
     return prompt
 
-# ランダムに過去の返信を取得
 def get_past_replies(user, max_examples=3):
     if not user or user not in user_histories:
         return []
     examples = user_histories[user]["comments"]
     return random.sample(examples, min(len(examples), max_examples))
 
-# ログ保存関数
 def save_log(username, user_comment, reply):
     with open("reply_log.csv", "a", encoding="utf-8") as f:
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         reply_text = reply.replace("\n", " ").replace(",", "。")
         f.write(f"{now},{username},{user_comment},{reply_text}\n")
 
-# UIルート
 @app.route("/", methods=["GET", "POST"])
 def index():
     reply = ""
@@ -135,9 +127,74 @@ def index():
         save_log(username, comment, reply)
 
     sorted_users = sorted(user_histories.items(), key=lambda item: -len(item[1]['comments']))
-    return render_template_string("""...（以下UIコードは省略）...""",
-        reply=reply, reply_options=reply_options, prompt=prompt,
-        username=username, comment=comment, sorted_users=sorted_users)
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Twitter返信アシスタント</title>
+        <style>
+            body { font-family: sans-serif; padding: 1em; max-width: 600px; margin: auto; }
+            label { font-weight: bold; margin-top: 1em; display: block; }
+            .form-group { margin-bottom: 1.2em; }
+            select, textarea, button {
+                width: 100%; padding: 0.8em; font-size: 1em;
+                border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
+            }
+            button {
+                background: #1da1f2; color: white; border: none; cursor: pointer; margin-top: 0.5em;
+            }
+            button:hover { background: #0d8ddb; }
+            .card {
+                background: white;
+                border: 1px solid #ccc;
+                border-radius: 8px;
+                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+                padding: 1em;
+                margin-top: 1em;
+            }
+            .card p { margin: 0 0 0.5em 0; }
+        </style>
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => alert("コピーしました！"));
+            }
+        </script>
+    </head>
+    <body>
+        <h1>Twitter返信アシスタント</h1>
+        <form method="post">
+            <div class="form-group">
+                <label>ユーザー名（@は除く）:</label>
+                <select name="username">
+                    <option value="">（履歴なしで生成）</option>
+                    {% for uid, data in sorted_users %}
+                        <option value="{{ uid }}" {% if username == uid %}selected{% endif %}>
+                            {{ data['name'] }}（@{{ uid[:8] }}…）[{{ data['comments']|length }}件]
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>相手のコメント:</label>
+                <textarea name="comment" rows="4" placeholder="コメント内容を入力してください" required>{{ comment }}</textarea>
+            </div>
+            <button type="submit">返信候補を生成</button>
+        </form>
+
+        {% if reply_options %}
+            <h2>生成された返信候補</h2>
+            {% for option in reply_options %}
+                <div class="card">
+                    <p>{{ option }}</p>
+                    <button onclick="copyToClipboard('{{ option }}')">コピー</button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </body>
+    </html>
+    """, reply=reply, reply_options=reply_options, prompt=prompt, username=username, comment=comment, sorted_users=sorted_users)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
