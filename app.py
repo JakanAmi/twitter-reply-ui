@@ -15,17 +15,9 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 with open("twitter_reply_history_fixed.json", "r", encoding="utf-8") as f:
     user_histories = json.load(f)
 
-# ユーザー名のマッピング読み込み
-name_map_path = "user_names.json"
-if os.path.exists(name_map_path):
-    with open(name_map_path, "r", encoding="utf-8") as f:
-        user_names = json.load(f)
-else:
-    user_names = {}
-
-# 名前マッピングを統合
+# ユーザー名のマッピング（仮名を自動生成）
 for uid, data in user_histories.items():
-    data["name"] = user_names.get(uid, f"@{uid[:8]}…")
+    data["name"] = f"@{uid[:8]}…"
 
 # プロンプト生成関数（履歴あり）
 def build_prompt(user_comment, past_replies):
@@ -66,20 +58,11 @@ def save_log(username, user_comment, reply):
         reply_text = reply.replace("\n", " ").replace(",", "。")
         f.write(f"{now},{username},{user_comment},{reply_text}\n")
 
-# 名前編集ルート
-@app.route("/rename", methods=["POST"])
-def rename_user():
-    uid = request.form["uid"]
-    new_name = request.form["new_name"]
-    user_names[uid] = new_name
-    with open(name_map_path, "w", encoding="utf-8") as f:
-        json.dump(user_names, f, ensure_ascii=False, indent=2)
-    return redirect("/")
-
 # UIルート
 @app.route("/", methods=["GET", "POST"])
 def index():
     reply = ""
+    reply_options = []
     prompt = ""
     username = ""
     comment = ""
@@ -99,6 +82,7 @@ def index():
             temperature=0.7
         )
         reply = response.choices[0].message.content
+        reply_options = [opt.strip("- ") for opt in reply.strip().split("\n") if opt.strip()]
         save_log(username, comment, reply)
 
     sorted_users = sorted(user_histories.items(), key=lambda item: -len(item[1]['comments']))
@@ -117,9 +101,13 @@ def index():
             button { background: #1da1f2; color: white; border: none; border-radius: 5px; cursor: pointer; }
             button:hover { background: #0d8ddb; }
             .reply-box { background: #f4f4f4; padding: 1em; border-left: 5px solid #1da1f2; white-space: pre-wrap; margin-top: 1em; }
-            .rename-form { display: flex; gap: 0.5em; align-items: center; margin-bottom: 0.5em; }
-            .rename-form input[type="text"] { flex: 1; }
+            .option { margin-bottom: 1em; }
         </style>
+        <script>
+            function copyToClipboard(text) {
+                navigator.clipboard.writeText(text).then(() => alert("コピーしました！"));
+            }
+        </script>
     </head>
     <body>
         <h1>Twitter返信アシスタント</h1>
@@ -140,19 +128,18 @@ def index():
             <button type="submit">返信候補を生成</button>
         </form>
 
-        {% if reply %}<div class="reply-box">{{ reply }}</div>{% endif %}
-
-        <h2>🖊️ 名前を修正</h2>
-        {% for uid, data in sorted_users %}
-        <form class="rename-form" method="post" action="/rename">
-            <input type="hidden" name="uid" value="{{ uid }}">
-            <input type="text" name="new_name" value="{{ data['name'] }}">
-            <button type="submit">保存</button>
-        </form>
-        {% endfor %}
+        {% if reply_options %}
+            <h2>生成された返信候補</h2>
+            {% for option in reply_options %}
+                <div class="reply-box">
+                    {{ option }}
+                    <button onclick="copyToClipboard('{{ option }}')">コピー</button>
+                </div>
+            {% endfor %}
+        {% endif %}
     </body>
     </html>
-    """, reply=reply, prompt=prompt, username=username, comment=comment, sorted_users=sorted_users)
+    """, reply=reply, reply_options=reply_options, prompt=prompt, username=username, comment=comment, sorted_users=sorted_users)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
