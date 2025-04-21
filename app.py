@@ -42,7 +42,7 @@ def build_generic_prompt(user_comment):
 
 # ランダムに過去の返信を取得
 def get_past_replies(user, max_examples=3):
-    if user not in user_histories:
+    if not user or user not in user_histories:
         return []
     examples = user_histories[user]["comments"]
     return random.sample(examples, min(len(examples), max_examples))
@@ -72,7 +72,7 @@ def index():
             prompt = build_generic_prompt(comment)
 
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
@@ -123,7 +123,12 @@ def index():
         <h1>Twitter返信アシスタント</h1>
         <form method="post">
             <label>ユーザー名（@は除く）:</label>
-            <input type="text" name="username" value="{{ username }}" required>
+            <select name="username">
+                <option value="">（履歴なしで生成）</option>
+                {% for name in user_histories.keys() %}
+                    <option value="{{ name }}" {% if username == name %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
 
             <label>相手のコメント:</label>
             <textarea name="comment" rows="4" required>{{ comment }}</textarea>
@@ -134,7 +139,7 @@ def index():
         {% if reply %}<div class="reply-box">{{ reply }}</div>{% endif %}
     </body>
     </html>
-    """, reply=reply, prompt=prompt, username=username, comment=comment)
+    """, reply=reply, prompt=prompt, username=username, comment=comment, user_histories=user_histories)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
