@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from datetime import datetime
+import pytz
 
 load_dotenv()
 
@@ -19,6 +20,19 @@ with open("twitter_reply_history_fixed.json", "r", encoding="utf-8") as f:
 for uid, data in user_histories.items():
     data["name"] = f"@{uid[:8]}…"
 
+# 時間帯に応じた挨拶指示を返す
+def get_greeting_instruction():
+    jst = pytz.timezone('Asia/Tokyo')
+    now_hour = datetime.now(jst).hour
+    if 5 <= now_hour < 11:
+        return "朝の時間帯です。挨拶として「おはようございます」など自然に使ってください。"
+    elif 11 <= now_hour < 17:
+        return "昼の時間帯です。「こんにちは」など自然な挨拶を使ってください。"
+    elif 17 <= now_hour < 23:
+        return "夕方〜夜の時間帯です。「こんばんは」など自然な挨拶を使ってください。"
+    else:
+        return "深夜帯です。挨拶は控えめでも構いませんが、丁寧な文体を心がけてください。"
+
 # プロンプト生成関数（履歴あり）
 def build_prompt(user_comment, past_replies):
     prompt = "あなたはTwitterアカウントの運営者です。\n"
@@ -27,7 +41,7 @@ def build_prompt(user_comment, past_replies):
     prompt += "## 過去の返信例:\n"
     for ex in past_replies:
         prompt += f"- {ex['text']}\n"
-    prompt += f"\n## 新しいコメント:\n{user_comment}\n\n## 自然な返信候補:"
+    prompt += f"\n## 新しいコメント:\n{user_comment}\n\n{get_greeting_instruction()}\n\n## 自然な返信候補:"
     return prompt
 
 # プロンプト生成関数（履歴なし）
@@ -36,6 +50,8 @@ def build_generic_prompt(user_comment):
 あなたはTwitterアカウントの運営者です。
 次のコメントに対して、自然で親しみのある返信を3パターン考えてください。
 絵文字を適度に使い、口調はフレンドリーに。あなたの投稿らしい文体にしてください。
+
+{get_greeting_instruction()}
 
 ## 新しいコメント:
 {user_comment}
