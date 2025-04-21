@@ -7,10 +7,11 @@
   <style>
     body {
       font-family: sans-serif;
-      max-width: 700px;
-      margin: auto;
+      max-width: 100%;
+      margin: 0 auto;
       padding: 1em;
       background: #f9f9f9;
+      box-sizing: border-box;
     }
     h1 {
       text-align: center;
@@ -26,24 +27,42 @@
     }
     .card {
       background: white;
-      padding: 1em;
+      padding: 1em 1em 2.5em 1em;
       margin-top: 1em;
       border-left: 5px solid #4CAF50;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       position: relative;
+      font-size: 1rem;
     }
     .copy {
       position: absolute;
-      top: 0.5em;
+      bottom: 0.5em;
       right: 0.5em;
       background: #eee;
-      padding: 0.2em 0.5em;
+      padding: 0.4em 0.7em;
       cursor: pointer;
-      font-size: 0.9em;
+      font-size: 0.95em;
+      z-index: 1;
+      border-radius: 4px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    }
+    /* プラットフォームごとのテーマ */
+    body.twitter {
+      background: #e8f5fd;
+    }
+    body.twitter .card {
+      border-left-color: #1DA1F2;
+    }
+
+    body.yamap {
+      background: #f2f7f2;
+    }
+    body.yamap .card {
+      border-left-color: #4CAF50;
     }
   </style>
 </head>
-<body>
+<body class="{{ selected_platform }}">
   <h1>SNS返信アシスタント</h1>
   <form method="post">
     <label>プラットフォーム選択:</label>
@@ -55,7 +74,7 @@
     <label>ユーザーID（@なし）:</label>
     <select name="user_id">
       {% for uid in user_ids %}
-      <option value="{{ uid }}">{{ uid }}</option>
+      <option value="{{ uid }}" {% if uid == selected_user_id %}selected{% endif %}>{{ uid }}</option>
       {% endfor %}
     </select>
 
