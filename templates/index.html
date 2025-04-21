@@ -1,111 +1,89 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Twitter返信アシスタント</title>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SNS返信アシスタント</title>
   <style>
     body {
-      font-family: 'Noto Sans JP', sans-serif;
-      background-color: #f6f9fc;
-      padding: 1.5em;
-      max-width: 720px;
+      font-family: sans-serif;
+      max-width: 700px;
       margin: auto;
-      color: #333;
+      padding: 1em;
+      background: #f9f9f9;
     }
     h1 {
-      font-size: 1.8em;
+      text-align: center;
       margin-bottom: 1em;
-      color: #1da1f2;
     }
-    label {
-      font-weight: bold;
-      margin-bottom: 0.5em;
+    label, select, input, textarea, button {
       display: block;
-    }
-    .form-group {
-      margin-bottom: 1.4em;
-    }
-    select, textarea, button {
       width: 100%;
-      padding: 0.9em;
-      font-size: 1em;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      box-sizing: border-box;
+      margin-bottom: 1em;
     }
-    button {
-      background: #1da1f2;
-      color: white;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.3s;
-    }
-    button:hover {
-      background: #0d8ddb;
+    textarea {
+      height: 100px;
     }
     .card {
       background: white;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      box-shadow: 0 3px 8px rgba(0,0,0,0.05);
       padding: 1em;
       margin-top: 1em;
+      border-left: 5px solid #4CAF50;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: relative;
     }
-    .card p {
-      margin: 0 0 0.8em 0;
-      line-height: 1.6;
-    }
-    .copy-btn {
-      background: #f0f0f0;
-      color: #333;
-      border: 1px solid #ccc;
-    }
-    .copy-btn:hover {
-      background: #e0e0e0;
+    .copy {
+      position: absolute;
+      top: 0.5em;
+      right: 0.5em;
+      background: #eee;
+      padding: 0.2em 0.5em;
+      cursor: pointer;
+      font-size: 0.9em;
     }
   </style>
-  <script>
-    function copyToClipboard(text) {
-      navigator.clipboard.writeText(text).then(() => alert("📋 コピーしました！"));
-    }
-  </script>
 </head>
 <body>
-  <h1>Twitter返信アシスタント ✨</h1>
-
+  <h1>SNS返信アシスタント</h1>
   <form method="post">
-    <div class="form-group">
-      <label for="username">ユーザー名（@は除く）:</label>
-      <select name="username" id="username">
-        <option value="">（履歴なしで生成）</option>
-        {% for uid, data in sorted_users %}
-        <option value="{{ uid }}" {% if username == uid %}selected{% endif %}>
-          {{ data['name'] }}（@{{ uid[:8] }}…）[{{ data['comments']|length }}件]
-        </option>
-        {% endfor %}
-      </select>
-    </div>
+    <label>プラットフォーム選択:</label>
+    <select name="platform" onchange="this.form.submit()">
+      <option value="twitter" {% if selected_platform == 'twitter' %}selected{% endif %}>Twitter</option>
+      <option value="yamap" {% if selected_platform == 'yamap' %}selected{% endif %}>YAMAP</option>
+    </select>
 
-    <div class="form-group">
-      <label for="comment">相手のコメント:</label>
-      <textarea name="comment" id="comment" rows="4" placeholder="コメント内容を入力してください" required>{{ comment }}</textarea>
-    </div>
+    <label>ユーザーID（@なし）:</label>
+    <select name="user_id">
+      {% for uid in user_ids %}
+      <option value="{{ uid }}">{{ uid }}</option>
+      {% endfor %}
+    </select>
 
-    <button type="submit">💬 返信候補を生成する</button>
+    <label>相手のコメント:</label>
+    <textarea name="comment" placeholder="コメントを入力してください"></textarea>
+
+    <button type="submit">返信候補を生成</button>
   </form>
 
-  {% if reply_options %}
-  <h2>生成された返信候補</h2>
-  {% for option in reply_options %}
-  <div class="card">
-    <p>{{ option }}</p>
-    <button class="copy-btn" onclick="copyToClipboard('{{ option }}')">📋 コピー</button>
-  </div>
-  {% endfor %}
+  {% if generated %}
+    <h2>生成された返信候補</h2>
+    {% for line in generated.split('\n') %}
+      {% if line.strip() %}
+        <div class="card">
+          <div class="copy" onclick="copyToClipboard(this)">📋 コピー</div>
+          {{ line }}
+        </div>
+      {% endif %}
+    {% endfor %}
   {% endif %}
+
+  <script>
+    function copyToClipboard(el) {
+      const text = el.parentElement.textContent.replace("📋 コピー", "").trim();
+      navigator.clipboard.writeText(text);
+      el.textContent = "✅ コピー済み";
+      setTimeout(() => el.textContent = "📋 コピー", 2000);
+    }
+  </script>
 </body>
 </html>
