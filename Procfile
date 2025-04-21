@@ -1,1 +1,1 @@
-web: python app.pygh auth login
+web: python app.py auth login
