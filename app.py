@@ -32,6 +32,29 @@ def get_greeting_instruction():
     else:
         return "深夜帯です。挨拶は控えめでも構いませんが、丁寧な文体を心がけてください。"
 
+def detect_emotion(text):
+    emotion_keywords = {
+        "喜び": ["うれしい", "楽しい", "感謝", "最高", "助かった"],
+        "悲しみ": ["さみしい", "つらい", "泣きたい", "失敗"],
+        "怒り": ["むかつく", "腹が立つ", "なんで", "許せない"],
+        "困惑": ["どうしよう", "わからない", "迷う", "混乱"]
+    }
+    for emotion, words in emotion_keywords.items():
+        if any(word in text for word in words):
+            return emotion
+    return "なし"
+
+def emotion_instruction(emotion):
+    if emotion == "喜び":
+        return "相手の喜びに共感し、ポジティブな気持ちを共有するように返してください。"
+    elif emotion == "悲しみ":
+        return "相手の気持ちに寄り添い、やさしいトーンで返信してください。"
+    elif emotion == "怒り":
+        return "相手をなだめるような、落ち着いた返信をしてください。"
+    elif emotion == "困惑":
+        return "安心感を与えるような、丁寧でわかりやすい返信をしてください。"
+    return ""
+
 def get_style_profile():
     all_texts = []
     for data in user_histories.values():
@@ -60,12 +83,16 @@ def get_style_profile():
 def build_prompt(user_comment, past_replies):
     profile = get_style_profile()
     char_len = len(user_comment)
+    emotion = detect_emotion(user_comment)
     length_instruction = f"相手のコメントは約{char_len}文字です。同じくらいの長さで返信してください。"
+    emotion_msg = emotion_instruction(emotion)
     prompt = "あなたはTwitterアカウントの運営者です。\n"
     prompt += "以下の「過去の返信例」を参考に、次のコメントに対して自然な返信を3パターン考えてください。\n"
     prompt += "相手に親しみを込めて、あなたらしい語尾・表現・絵文字を活かした文体で書いてください。\n\n"
     prompt += profile + "\n"
     prompt += length_instruction + "\n"
+    if emotion_msg:
+        prompt += emotion_msg + "\n"
     prompt += "## 過去の返信例:\n"
     for ex in past_replies:
         prompt += f"- {ex['text']}\n"
@@ -75,7 +102,9 @@ def build_prompt(user_comment, past_replies):
 def build_generic_prompt(user_comment):
     profile = get_style_profile()
     char_len = len(user_comment)
+    emotion = detect_emotion(user_comment)
     length_instruction = f"相手のコメントは約{char_len}文字です。同じくらいの長さで返信してください。"
+    emotion_msg = emotion_instruction(emotion)
     prompt = f"""
 あなたはTwitterアカウントの運営者です。
 次のコメントに対して、自然で親しみのある返信を3パターン考えてください。
@@ -85,6 +114,7 @@ def build_generic_prompt(user_comment):
 
 {profile}
 {length_instruction}
+{emotion_msg}
 
 ## 新しいコメント:
 {user_comment}
