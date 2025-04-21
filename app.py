@@ -93,7 +93,7 @@ def index():
             prompt = build_generic_prompt(comment)
 
         response = client.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
@@ -111,10 +111,15 @@ def index():
         <title>Twitter返信アシスタント</title>
         <style>
             body { font-family: sans-serif; padding: 1em; max-width: 600px; margin: auto; }
-            input, textarea, select, button {
-                width: 100%; padding: 0.7em; margin-top: 0.5em; margin-bottom: 1em; font-size: 1em;
+            label { font-weight: bold; margin-top: 1em; display: block; }
+            .form-group { margin-bottom: 1.2em; }
+            select, textarea, button {
+                width: 100%; padding: 0.8em; font-size: 1em;
+                border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;
             }
-            button { background: #1da1f2; color: white; border: none; border-radius: 5px; cursor: pointer; }
+            button {
+                background: #1da1f2; color: white; border: none; cursor: pointer; margin-top: 0.5em;
+            }
             button:hover { background: #0d8ddb; }
             .card {
                 background: white;
@@ -124,9 +129,7 @@ def index():
                 padding: 1em;
                 margin-top: 1em;
             }
-            .card p {
-                margin: 0 0 0.5em 0;
-            }
+            .card p { margin: 0 0 0.5em 0; }
         </style>
         <script>
             function copyToClipboard(text) {
@@ -137,18 +140,22 @@ def index():
     <body>
         <h1>Twitter返信アシスタント</h1>
         <form method="post">
-            <label>ユーザー名（@は除く）:</label>
-            <select name="username">
-                <option value="">（履歴なしで生成）</option>
-                {% for uid, data in sorted_users %}
-                    <option value="{{ uid }}" {% if username == uid %}selected{% endif %}>
-                        {{ data['name'] }}（@{{ uid[:8] }}…）[{{ data['comments']|length }}件]
-                    </option>
-                {% endfor %}
-            </select>
+            <div class="form-group">
+                <label>ユーザー名（@は除く）:</label>
+                <select name="username">
+                    <option value="">（履歴なしで生成）</option>
+                    {% for uid, data in sorted_users %}
+                        <option value="{{ uid }}" {% if username == uid %}selected{% endif %}>
+                            {{ data['name'] }}（@{{ uid[:8] }}…）[{{ data['comments']|length }}件]
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
 
-            <label>相手のコメント:</label>
-            <textarea name="comment" rows="4" required>{{ comment }}</textarea>
+            <div class="form-group">
+                <label>相手のコメント:</label>
+                <textarea name="comment" rows="4" placeholder="コメント内容を入力してください" required>{{ comment }}</textarea>
+            </div>
 
             <button type="submit">返信候補を生成</button>
         </form>
