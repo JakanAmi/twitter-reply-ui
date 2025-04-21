@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, request
+from flask import Flask, render_template_string, request, redirect
 import json
 import random
 import os
@@ -14,6 +14,18 @@ client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # JSONデータ読み込み
 with open("twitter_reply_history_fixed.json", "r", encoding="utf-8") as f:
     user_histories = json.load(f)
+
+# ユーザー名のマッピング読み込み
+name_map_path = "user_names.json"
+if os.path.exists(name_map_path):
+    with open(name_map_path, "r", encoding="utf-8") as f:
+        user_names = json.load(f)
+else:
+    user_names = {}
+
+# 名前マッピングを統合
+for uid, data in user_histories.items():
+    data["name"] = user_names.get(uid, f"@{uid[:8]}…")
 
 # プロンプト生成関数（履歴あり）
 def build_prompt(user_comment, past_replies):
@@ -54,6 +66,16 @@ def save_log(username, user_comment, reply):
         reply_text = reply.replace("\n", " ").replace(",", "。")
         f.write(f"{now},{username},{user_comment},{reply_text}\n")
 
+# 名前編集ルート
+@app.route("/rename", methods=["POST"])
+def rename_user():
+    uid = request.form["uid"]
+    new_name = request.form["new_name"]
+    user_names[uid] = new_name
+    with open(name_map_path, "w", encoding="utf-8") as f:
+        json.dump(user_names, f, ensure_ascii=False, indent=2)
+    return redirect("/")
+
 # UIルート
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -61,7 +83,7 @@ def index():
     prompt = ""
     username = ""
     comment = ""
-    if request.method == "POST":
+    if request.method == "POST" and "comment" in request.form:
         username = request.form["username"].strip()
         comment = request.form["comment"].strip()
         past_replies = get_past_replies(username)
@@ -79,6 +101,7 @@ def index():
         reply = response.choices[0].message.content
         save_log(username, comment, reply)
 
+    sorted_users = sorted(user_histories.items(), key=lambda item: -len(item[1]['comments']))
     return render_template_string("""
     <!DOCTYPE html>
     <html lang="ja">
@@ -87,36 +110,15 @@ def index():
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>Twitter返信アシスタント</title>
         <style>
-            body {
-                font-family: sans-serif;
-                padding: 1em;
-                max-width: 600px;
-                margin: auto;
-            }
+            body { font-family: sans-serif; padding: 1em; max-width: 600px; margin: auto; }
             input, textarea, select, button {
-                width: 100%;
-                padding: 0.7em;
-                margin-top: 0.5em;
-                margin-bottom: 1em;
-                font-size: 1em;
+                width: 100%; padding: 0.7em; margin-top: 0.5em; margin-bottom: 1em; font-size: 1em;
             }
-            button {
-                background: #1da1f2;
-                color: white;
-                border: none;
-                border-radius: 5px;
-                cursor: pointer;
-            }
-            button:hover {
-                background: #0d8ddb;
-            }
-            .reply-box {
-                background: #f4f4f4;
-                padding: 1em;
-                border-left: 5px solid #1da1f2;
-                white-space: pre-wrap;
-                margin-top: 1em;
-            }
+            button { background: #1da1f2; color: white; border: none; border-radius: 5px; cursor: pointer; }
+            button:hover { background: #0d8ddb; }
+            .reply-box { background: #f4f4f4; padding: 1em; border-left: 5px solid #1da1f2; white-space: pre-wrap; margin-top: 1em; }
+            .rename-form { display: flex; gap: 0.5em; align-items: center; margin-bottom: 0.5em; }
+            .rename-form input[type="text"] { flex: 1; }
         </style>
     </head>
     <body>
@@ -125,8 +127,10 @@ def index():
             <label>ユーザー名（@は除く）:</label>
             <select name="username">
                 <option value="">（履歴なしで生成）</option>
-                {% for name in user_histories.keys() %}
-                    <option value="{{ name }}" {% if username == name %}selected{% endif %}>{{ name }}</option>
+                {% for uid, data in sorted_users %}
+                    <option value="{{ uid }}" {% if username == uid %}selected{% endif %}>
+                        {{ data['name'] }}（@{{ uid[:8] }}…）[{{ data['comments']|length }}件]
+                    </option>
                 {% endfor %}
             </select>
 
@@ -137,9 +141,18 @@ def index():
         </form>
 
         {% if reply %}<div class="reply-box">{{ reply }}</div>{% endif %}
+
+        <h2>🖊️ 名前を修正</h2>
+        {% for uid, data in sorted_users %}
+        <form class="rename-form" method="post" action="/rename">
+            <input type="hidden" name="uid" value="{{ uid }}">
+            <input type="text" name="new_name" value="{{ data['name'] }}">
+            <button type="submit">保存</button>
+        </form>
+        {% endfor %}
     </body>
     </html>
-    """, reply=reply, prompt=prompt, username=username, comment=comment, user_histories=user_histories)
+    """, reply=reply, prompt=prompt, username=username, comment=comment, sorted_users=sorted_users)
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
